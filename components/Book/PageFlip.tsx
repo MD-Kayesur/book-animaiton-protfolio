@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   motion,
   useMotionValue,
@@ -48,7 +48,6 @@ export default function PageFlip({
 }: PageFlipProps) {
   const rotateY = useMotionValue(flipped ? -180 : 0);
   const hasMounted = useRef(false);
-  const [isCornerHovered, setIsCornerHovered] = useState(false);
 
   // ─── Spring animation ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -106,15 +105,6 @@ export default function PageFlip({
     [0, 0.7, 1, 0.7, 0]
   );
 
-  // ── Corner hover lift spring (only on active page)
-  const cornerLift = useSpring(0, { stiffness: 200, damping: 22 });
-  useEffect(() => {
-    cornerLift.set(isCornerHovered && frontActive ? 1 : 0);
-  }, [isCornerHovered, frontActive, cornerLift]);
-
-  const cornerRotate = useTransform(cornerLift, [0, 1], [0, -12]);
-  const cornerTranslateZ = useTransform(cornerLift, [0, 1], [0, 18]);
-  const cornerTranslateY = useTransform(cornerLift, [0, 1], [0, -6]);
 
   // ─── Z-index — derived directly from the motion value (no stale-closure bugs)
   // The spring animation OVERSHOOTS past -180°. If we only guard up to 178° the
@@ -204,47 +194,6 @@ export default function PageFlip({
           }}
         />
 
-        {/* Corner pre-lift — visible as 3D hover before page turns */}
-        {frontActive && (
-          <motion.div
-            className="pointer-events-none absolute bottom-0 right-0 origin-bottom-right"
-            style={{
-              width: 80,
-              height: 80,
-              rotateZ: cornerRotate,
-              translateZ: cornerTranslateZ,
-              translateY: cornerTranslateY,
-            }}
-          >
-            {/* Page curl shadow underneath the lifted corner */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "linear-gradient(135deg, transparent 45%, rgba(0,0,0,0.18) 55%, rgba(0,0,0,0.08) 70%, transparent 85%)",
-                borderBottomRightRadius: 6,
-              }}
-            />
-            {/* Lit underside of the curled corner */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "linear-gradient(135deg, transparent 50%, rgba(236,227,208,0.6) 60%, transparent 75%)",
-                borderBottomRightRadius: 6,
-              }}
-            />
-          </motion.div>
-        )}
-
-        {/* Hover detector for corner lift */}
-        {frontActive && (
-          <div
-            className="absolute bottom-0 right-0 h-20 w-20 cursor-pointer"
-            onMouseEnter={() => setIsCornerHovered(true)}
-            onMouseLeave={() => setIsCornerHovered(false)}
-          />
-        )}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
@@ -307,17 +256,7 @@ export default function PageFlip({
           }}
         />
 
-        {/* Back-face corner hint for going back */}
-        {backActive && (
-          <div
-            className="pointer-events-none absolute bottom-0 left-0 h-16 w-16 opacity-0 transition-all duration-300 group-hover:opacity-100"
-            style={{
-              background:
-                "linear-gradient(225deg, transparent 50%, rgba(0,0,0,0.1) 60%, transparent 75%)",
-              borderBottomLeftRadius: 6,
-            }}
-          />
-        )}
+
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
