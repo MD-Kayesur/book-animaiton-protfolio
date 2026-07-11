@@ -48,7 +48,6 @@ export default function PageFlip({
 }: PageFlipProps) {
   const rotateY = useMotionValue(flipped ? -180 : 0);
   const hasMounted = useRef(false);
-  const [isAbove, setIsAbove] = useState(flipped); // true = over left stack
   const [isCornerHovered, setIsCornerHovered] = useState(false);
 
   // ─── Spring animation ──────────────────────────────────────────────────────
@@ -60,11 +59,6 @@ export default function PageFlip({
       stiffness: hasMounted.current ? 72 : 280,
       damping: hasMounted.current ? 17 : 38,
       mass: hasMounted.current ? 1.35 : 1,
-      onUpdate: (v) => {
-        // Swap z-order exactly when the page crosses the 90° mid-point
-        if (v < -89 && !isAbove) setIsAbove(true);
-        if (v > -91 && isAbove && !flipped) setIsAbove(false);
-      },
     });
     hasMounted.current = true;
     return () => controls.stop();
@@ -122,10 +116,24 @@ export default function PageFlip({
   const cornerTranslateZ = useTransform(cornerLift, [0, 1], [0, 18]);
   const cornerTranslateY = useTransform(cornerLift, [0, 1], [0, -6]);
 
-  // ─── Z-index ────────────────────────────────────────────────────────────────
-  const baseZ = isAbove
-    ? totalSheets + index + 10          // flying over the left stack
-    : totalSheets - index + 1;          // sitting in the right stack
+  // ─── Z-index — derived directly from the motion value (no stale-closure bugs)
+  // The spring animation OVERSHOOTS past -180°. If we only guard up to 178° the
+  // page briefly drops to restZ during the overshoot tail, causing a flash of the
+  // previous page. We extend the guard to 185° to cover the full overshoot range.
+  //
+  // At rest the page falls into correct stack order:
+  //   • flipped   (left stack): totalSheets + index → higher index = more on top
+  //   • unflipped (right stack): totalSheets - index → lower index = more on top
+  const restZ = flipped
+    ? totalSheets + index + 1          // settled left stack  (higher = more on top)
+    : totalSheets - index + 1;         // settled right stack (lower  = more on top)
+
+  const dynamicZIndex = useTransform(rotateY, (v) => {
+    const abs = Math.abs(v);
+    // Actively in motion (including spring overshoot) → maximum z
+    if (abs > 2 && abs < 185) return 999;
+    return restZ;
+  });
 
   return (
     <motion.div
@@ -136,7 +144,7 @@ export default function PageFlip({
         rotateY,
         skewY,
         scaleX,
-        zIndex: baseZ,
+        zIndex: dynamicZIndex,
       }}
     >
       {/* ═══════════════════════════════════════════════════════════════════
