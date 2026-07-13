@@ -47,14 +47,20 @@ export default function PageFlip({
   isBackCoverSheet,
 }: PageFlipProps) {
   const [isFlipping, setIsFlipping] = useState(false);
+  const [prevFlipped, setPrevFlipped] = useState(flipped);
   const rotateY = useMotionValue(flipped ? -180 : 0);
   const hasMounted = useRef(false);
 
-  // ─── Spring animation ──────────────────────────────────────────────────────
-  useEffect(() => {
+  // Synchronously set isFlipping to true on the very first frame of the prop change
+  if (flipped !== prevFlipped) {
+    setPrevFlipped(flipped);
     if (hasMounted.current) {
       setIsFlipping(true);
     }
+  }
+
+  // ─── Spring animation ──────────────────────────────────────────────────────
+  useEffect(() => {
     const target = flipped ? -180 : 0;
     const controls = animate(rotateY, target, {
       type: "spring",
