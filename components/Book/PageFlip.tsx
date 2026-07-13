@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   motion,
   useMotionValue,
@@ -46,11 +46,15 @@ export default function PageFlip({
   isCover,
   isBackCoverSheet,
 }: PageFlipProps) {
+  const [isFlipping, setIsFlipping] = useState(false);
   const rotateY = useMotionValue(flipped ? -180 : 0);
   const hasMounted = useRef(false);
 
   // ─── Spring animation ──────────────────────────────────────────────────────
   useEffect(() => {
+    if (hasMounted.current) {
+      setIsFlipping(true);
+    }
     const target = flipped ? -180 : 0;
     const controls = animate(rotateY, target, {
       type: "spring",
@@ -58,6 +62,9 @@ export default function PageFlip({
       stiffness: hasMounted.current ? 72 : 280,
       damping: hasMounted.current ? 17 : 38,
       mass: hasMounted.current ? 1.35 : 1,
+      onComplete: () => {
+        setIsFlipping(false);
+      },
     });
     hasMounted.current = true;
     return () => controls.stop();
@@ -106,24 +113,17 @@ export default function PageFlip({
   );
 
 
-  // ─── Z-index — derived directly from the motion value (no stale-closure bugs)
-  // The spring animation OVERSHOOTS past -180°. If we only guard up to 178° the
-  // page briefly drops to restZ during the overshoot tail, causing a flash of the
-  // previous page. We extend the guard to 185° to cover the full overshoot range.
-  //
-  // At rest the page falls into correct stack order:
+  // ─── Z-index — state-based tracking avoids stale-closure bugs and flashes ───
+  // During flip animation, we set zIndex to (totalSheets + index + 1) so it maintains
+  // its correct relative stacking order even while floating in flight.
+  // When settled, we restore the correct physical stacking zIndex:
   //   • flipped   (left stack): totalSheets + index → higher index = more on top
   //   • unflipped (right stack): totalSheets - index → lower index = more on top
   const restZ = flipped
     ? totalSheets + index + 1          // settled left stack  (higher = more on top)
     : totalSheets - index + 1;         // settled right stack (lower  = more on top)
 
-  const dynamicZIndex = useTransform(rotateY, (v) => {
-    const abs = Math.abs(v);
-    // Actively in motion (including spring overshoot) → maximum z
-    if (abs > 2 && abs < 185) return 999;
-    return restZ;
-  });
+  const currentZIndex = isFlipping ? (totalSheets + index + 1) : restZ;
 
   return (
     <motion.div
@@ -134,7 +134,7 @@ export default function PageFlip({
         rotateY,
         skewY,
         scaleX,
-        zIndex: dynamicZIndex,
+        zIndex: currentZIndex,
       }}
     >
       {/* ═══════════════════════════════════════════════════════════════════
